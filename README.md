@@ -12,3 +12,10 @@ Only the owner of the contract can pause it
 Only the owner of the contract can change the owner
 Only the owner of the contract can change the price
 The contract is deployed on  : []()
+
+
+### **Environement variables**
+
+* `URL_ALCHEMY=` : Used for deployement if you work with [Alchemy](https://www.alchemy.com/)
+* `URL_POKT=` : Called for deployement if you want to used [Pokt](https://www.pokt.network/) as a node provider
+* `ETHERSCAN_API_KEY=` : To verify the contract on [Etherscan](https://hardhat.org/hardhat-runner/plugins/nomiclabs-hardhat-etherscan)
