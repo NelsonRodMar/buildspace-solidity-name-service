@@ -6,14 +6,16 @@ const main = async () => {
   const frame = ethProvider('frame') // Connect to Frame
 
   // Use `getDeployTransaction` instead of `deploy` to return deployment data
-  const waveContractFactory = await ethers.getContractFactory('WavePortal')
-  const waveContract = await waveContractFactory.getDeployTransaction()
+  const domainsContractFactory = await ethers.getContractFactory('Domains')
+  const domainsContract = await domainsContractFactory.getDeployTransaction(ethers.utils.parseEther("0.015"))
 
   // Set `tx.from` to current Frame account
-  waveContract.from = (await frame.request({ method: 'eth_requestAccounts' }))[0]
+  domainsContract.from = (await frame.request({ method: 'eth_requestAccounts' }))[0]
 
   // Sign and send the transaction using Frame
-  await frame.request({ method: 'eth_sendTransaction', params: [waveContract] })
+  const result = await frame.request({ method: 'eth_sendTransaction', params: [domainsContract] })
+
+  console.log("Transaction deployement : ", result);
 };
 
 const runMain = async () => {

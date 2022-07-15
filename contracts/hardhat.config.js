@@ -2,18 +2,22 @@ require('@nomiclabs/hardhat-waffle');
 require("@nomiclabs/hardhat-etherscan");
 const dotenv = require("dotenv");
 dotenv.config({path: __dirname + '/.env'});
-const {URL_ALCHEMY, ETHERSCAN_API_KEY} = process.env;
+const {ETHERSCAN_API_KEY_RINKEBY, ETHERSCAN_API_KEY_MUMBAI, URL_ALCHEMY_MUMBAI, URL_ALCHEMY_RINKEBY} = process.env;
 
 module.exports = {
   solidity: '0.8.10',
   networks: {
-    polygonMumbai: {
-      url: URL_ALCHEMY
+    mumbai: {
+      url: URL_ALCHEMY_MUMBAI
     },
+    rinkeby: {
+      url: URL_ALCHEMY_RINKEBY
+    }
   },
   etherscan: {
     apiKey: {
-      polygonMumbai: ETHERSCAN_API_KEY,
-    },
-  },
+      rinkeby: ETHERSCAN_API_KEY_RINKEBY,
+      // mumbai: ETHERSCAN_API_KEY_MUMBAI
+    }
+  }
 };
