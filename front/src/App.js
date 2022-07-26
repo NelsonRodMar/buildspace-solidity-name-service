@@ -68,12 +68,17 @@ const App = () => {
             return;
         }
         console.log("Minting domain", domain);
+        const { ethereum } = window;
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, domains.abi, signer);
+        let pause = await contract.paused();
+        if (pause) {
+            alert('Contract is paused');
+            return;
+        }
         try {
-            const { ethereum } = window;
             if (ethereum) {
-                const provider = new ethers.providers.Web3Provider(ethereum);
-                const signer = provider.getSigner();
-                const contract = new ethers.Contract(CONTRACT_ADDRESS, domains.abi, signer);
                 var price = await contract.price();
                 price = price.toHexString();
 
