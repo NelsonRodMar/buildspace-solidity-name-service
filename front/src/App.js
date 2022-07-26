@@ -1,30 +1,31 @@
-import React, { useEffect, useState } from "react";
+import React, {useEffect, useState} from "react";
+import { ethers } from "ethers";
 import './styles/App.css';
 import twitterLogo from './assets/twitter-logo.svg';
+import domains from './utils/Domains.json';
 
-// Constants
 const TWITTER_HANDLE = 'NelsonRodMar';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
-
+const tld = '.panda';
+const CONTRACT_ADDRESS = '0x684f2970509ed65936d7F0Ce7B4064dee9C3fe5e';
 
 const App = () => {
     const [currentAccount, setCurrentAccount] = useState("");
+    const [domain, setDomain] = useState('');
+    const [twitter, setTwitter] = useState('');
 
     /**
      * Implement your connectWallet method here
      */
     const connectWallet = async () => {
         try {
-            const { ethereum } = window;
+            const {ethereum} = window;
 
             if (!ethereum) {
                 alert("Get a wallet !");
                 return;
             }
-
-            const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-
-            console.log("Connected", accounts[0]);
+            const accounts = await ethereum.request({method: "eth_requestAccounts"});
             setCurrentAccount(accounts[0]);
         } catch (error) {
             console.log(error)
@@ -57,7 +58,53 @@ const App = () => {
             console.log(error);
         }
     }
-// Create a function to render if wallet is not connected yet
+
+    const mintDomain = async () => {
+        // Don't run if the domain is empty
+        if (!domain && !twitter) { return }
+        // Alert the user if the domain is too short
+        if (domain.length < 0) {
+            alert('Domain must be at least 1 characters long');
+            return;
+        }
+        console.log("Minting domain", domain);
+        try {
+            const { ethereum } = window;
+            if (ethereum) {
+                const provider = new ethers.providers.Web3Provider(ethereum);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, domains.abi, signer);
+                var price = await contract.price();
+                price = price.toHexString();
+
+                console.log("Price ", price)
+                console.log("Going to pop wallet now to pay gas...")
+                let tx = await contract.register(domain, {value: price});
+                // Wait for the transaction to be mined
+                const receipt = await tx.wait();
+
+                // Check if the transaction was successfully completed
+                if (receipt.status === 1) {
+                    // Set the record for the domain
+                    tx = await contract.setTwitter(domain, twitter);
+                    await tx.wait();
+
+                    console.log("Record set! https://mumbai.polygonscan.com/tx/"+tx.hash);
+
+                    setTwitter('');
+                    setDomain('');
+                }
+                else {
+                    alert("Transaction failed! Please try again");
+                }
+            }
+        }
+        catch(error){
+            console.log(error);
+        }
+    }
+
+    // Create a function to render if wallet is not connected yet
     const renderNotConnectedContainer = () => (
         <div className="connect-wallet-container">
             <img src="https://media.giphy.com/media/ewzF6uunnPn6L5amuW/giphy-downsized-large.gif" alt="Panda gif"/>
@@ -67,10 +114,44 @@ const App = () => {
         </div>
     );
 
-    // This runs our function when the page loads.
+
+    // Form to enter domain name and data
+    const renderInputForm = () => {
+        return (
+            <div className="form-container">
+
+                <img src="https://media.giphy.com/media/snpENu20kUrTESS3ko/giphy.gif" alt="Panda hello"/>
+                <br />
+                <div className="first-row">
+                    <input
+                        type="text"
+                        value={domain}
+                        placeholder='domain'
+                        onChange={e => setDomain(e.target.value)}
+                    />
+                    <p className='tld'> {tld} </p>
+                </div>
+
+                <input
+                    type="text"
+                    value={twitter}
+                    placeholder='whats ur Twitter account'
+                    onChange={e => setTwitter(e.target.value)}
+                />
+
+                <div className="button-container">
+                    <button className='cta-button mint-button' onClick={mintDomain}>
+                        Mint
+                    </button>
+                </div>
+
+            </div>
+        );
+    }
+
     useEffect(() => {
         checkIfWalletIsConnected();
-    }, [])
+    }, []);
 
     return (
         <div className="App">
@@ -86,11 +167,7 @@ const App = () => {
                 </div>
 
                 {!currentAccount && renderNotConnectedContainer()}
-                {currentAccount && (
-                    <div className="connect-wallet-container">
-                    <img src="https://media.giphy.com/media/snpENu20kUrTESS3ko/giphy.gif" alt="Panda hello" />
-                    </div>
-                )}
+                {currentAccount && renderInputForm()}
 
                 <div className="footer-container">
                     <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo}/>
