@@ -26,8 +26,15 @@ const main = async () => {
 
     let registerTxn = await domainContract.register("test", {value: hre.ethers.utils.parseEther('0.16')});
     await registerTxn.wait();
-
     console.log("Transaction completed domain minted");
+
+    // Try to register a domain with a name already registered
+    try {
+        let registerTxn = await domainContract.register("test", {value: hre.ethers.utils.parseEther('0.16')});
+        await registerTxn.wait();
+    } catch (e) {
+        console.log("Transaction failed : ", e.message);
+    }
 
     // Contract Balance
     balance = await hre.ethers.provider.getBalance(domainContract.address);

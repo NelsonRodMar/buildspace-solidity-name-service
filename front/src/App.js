@@ -1,18 +1,27 @@
 import React, {useEffect, useState} from "react";
-import { ethers } from "ethers";
+import {ethers} from "ethers";
 import './styles/App.css';
+
+import polygonLogo from './assets/polygonlogo.png';
+import editIcon from './assets/edit.png';
+import ethLogo from './assets/ethlogo.png';
 import twitterLogo from './assets/twitter-logo.svg';
 import domains from './utils/Domains.json';
+import {networks} from './utils/networks';
 
 const TWITTER_HANDLE = 'NelsonRodMar';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 const tld = '.panda';
-const CONTRACT_ADDRESS = '0x684f2970509ed65936d7F0Ce7B4064dee9C3fe5e';
+const CONTRACT_ADDRESS = '0xcc7bce2a2bCDA3316D78AcfF1742dE5a6c8D6B7F';
 
 const App = () => {
     const [currentAccount, setCurrentAccount] = useState("");
+    const [network, setNetwork] = useState('');
     const [domain, setDomain] = useState('');
     const [twitter, setTwitter] = useState('');
+    const [editing, setEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [mints, setMints] = useState([]);
 
     /**
      * Implement your connectWallet method here
@@ -54,6 +63,16 @@ const App = () => {
             } else {
                 console.log("No authorized account found")
             }
+
+            const chainId = await ethereum.request({method: 'eth_chainId'});
+            setNetwork(networks[chainId]);
+
+            ethereum.on('chainChanged', handleChainChanged);
+
+            // Reload the page when they change networks
+            function handleChainChanged(_chainId) {
+                window.location.reload();
+            }
         } catch (error) {
             console.log(error);
         }
@@ -61,14 +80,16 @@ const App = () => {
 
     const mintDomain = async () => {
         // Don't run if the domain is empty
-        if (!domain && !twitter) { return }
+        if (!domain && !twitter) {
+            return
+        }
         // Alert the user if the domain is too short
-        if (domain.length < 0) {
-            alert('Domain must be at least 1 characters long');
+        if (domain.length < 1 && domain.length > 140) {
+            alert('Domain must between 1 and 140 characters');
             return;
         }
         console.log("Minting domain", domain);
-        const { ethereum } = window;
+        const {ethereum} = window;
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
         const contract = new ethers.Contract(CONTRACT_ADDRESS, domains.abi, signer);
@@ -94,19 +115,124 @@ const App = () => {
                     tx = await contract.setTwitter(domain, twitter);
                     await tx.wait();
 
-                    console.log("Record set! https://mumbai.polygonscan.com/tx/"+tx.hash);
+                    console.log("Record set! https://mumbai.polygonscan.com/tx/" + tx.hash);
+
+                    // Call fetchMints after 2 seconds
+                    setTimeout(() => {
+                        fetchMints();
+                    }, 2000);
 
                     setTwitter('');
                     setDomain('');
-                }
-                else {
+                } else {
                     alert("Transaction failed! Please try again");
                 }
             }
-        }
-        catch(error){
+        } catch (error) {
             console.log(error);
         }
+    }
+
+    const updateTwitter = async () => {
+        if (!twitter || !domain) {
+            return
+        }
+        setLoading(true);
+        console.log("Updating domain", domain, "with twitter", twitter);
+        try {
+            const {ethereum} = window;
+            if (ethereum) {
+                const provider = new ethers.providers.Web3Provider(ethereum);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, domains.abi, signer);
+
+                let tx = await contract.setTwitter(domain, twitter);
+                await tx.wait();
+                console.log("Twitter updated tx hash : " + tx.hash);
+
+                fetchMints();
+                setTwitter('');
+                setDomain('');
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        setLoading(false);
+    }
+
+    // Fetch all the Domains mint
+    const fetchMints = async () => {
+        try {
+            const {ethereum} = window;
+            if (ethereum) {
+                // You know all this
+                const provider = new ethers.providers.Web3Provider(ethereum);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, domains.abi, signer);
+
+                // Get all the domain names from our contract
+                const names = await contract.getAllNames();
+
+
+                // For each name, get the record and the address
+                const mintTwitters = await Promise.all(names.map(async (name) => {
+                    const mintTwitter = await contract.getTwitter(name);
+                    const owner = await contract.getAddress(name);
+                    return {
+                        id: names.indexOf(name),
+                        name: name,
+                        twitter: mintTwitter,
+                        owner: owner,
+                    };
+                }));
+
+                console.log("MINTS FETCHED ", mintTwitters);
+                setMints(mintTwitters);
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const renderMints = () => {
+        if (currentAccount && mints.length > 0) {
+            return (
+                <div className="mint-container">
+                    <p className="subtitle"> Recently minted domains!</p>
+                    <div className="mint-list">
+                        {mints.map((mint, index) => {
+                            return (
+                                <div className="mint-item" key={index}>
+                                    <div className='mint-row'>
+                                        <a className="link"
+                                           href={`https://testnets.opensea.io/assets/rinkeby/${CONTRACT_ADDRESS}/${mint.id}`}
+                                           target="_blank" rel="noopener noreferrer">
+                                            <p>{' '}{mint.name}{tld}{' '}</p>
+                                        </a>
+                                        {/* If mint.owner is currentAccount, add an "edit" button*/}
+                                        {mint.owner.toLowerCase() === currentAccount.toLowerCase() ?
+                                            <button className="edit-button" onClick={() => editRecord(mint.name)}>
+                                                <img className="edit-icon"
+                                                     src={editIcon}
+                                                     alt="Edit button"/>
+                                            </button>
+                                            :
+                                            null
+                                        }
+                                    </div>
+                                    <a href={`https://twitter.com/${mint.twitter}/`}> @{mint.twitter} </a>
+                                </div>)
+                        })}
+                    </div>
+                </div>);
+        }
+    };
+
+    // This will take us into edit mode and show us the edit buttons!
+    const editRecord = (name) => {
+        console.log("Editing record for", name);
+        setEditing(true);
+        setDomain(name);
     }
 
     // Create a function to render if wallet is not connected yet
@@ -126,9 +252,10 @@ const App = () => {
             <div className="form-container">
 
                 <img src="https://media.giphy.com/media/snpENu20kUrTESS3ko/giphy.gif" alt="Panda hello"/>
-                <br />
+                <br/>
                 <div className="first-row">
                     <input
+                        id="domain"
                         type="text"
                         value={domain}
                         placeholder='domain'
@@ -144,11 +271,24 @@ const App = () => {
                     onChange={e => setTwitter(e.target.value)}
                 />
 
-                <div className="button-container">
-                    <button className='cta-button mint-button' onClick={mintDomain}>
+                {editing ? (
+                    <div className="button-container">
+                        <button className='cta-button mint-button' disabled={loading} onClick={updateTwitter}>
+                            Set Twitter
+                        </button>
+                        <button className='cta-button mint-button' onClick={() => {
+                            document.getElementById('domain').value = "";
+                            setEditing(false);
+                        }}>
+                            Cancel
+                        </button>
+                    </div>
+                ) : (
+                    // If editing is not true, the mint button will be returned instead
+                    <button className='cta-button mint-button' disabled={loading} onClick={mintDomain}>
                         Mint
                     </button>
-                </div>
+                )}
 
             </div>
         );
@@ -157,6 +297,10 @@ const App = () => {
     useEffect(() => {
         checkIfWalletIsConnected();
     }, []);
+
+    useEffect(() => {
+        fetchMints();
+    }, [currentAccount, network]);
 
     return (
         <div className="App">
@@ -168,11 +312,20 @@ const App = () => {
                             <p className="title">🐼 Panda Name Service</p>
                             <p className="subtitle">Your representation as a Panda !</p>
                         </div>
+
+                        <div className="right">
+                            <img alt="Network logo" className="logo"
+                                 src={network.includes("Polygon") ? polygonLogo : ethLogo}/>
+                            {currentAccount ?
+                                <p> Wallet: {currentAccount.slice(0, 6)}...{currentAccount.slice(-4)} </p> :
+                                <p> Not connected </p>}
+                        </div>
                     </header>
                 </div>
 
                 {!currentAccount && renderNotConnectedContainer()}
                 {currentAccount && renderInputForm()}
+                {mints && renderMints()}
 
                 <div className="footer-container">
                     <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo}/>

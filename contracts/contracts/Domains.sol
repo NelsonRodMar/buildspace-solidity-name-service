@@ -23,6 +23,10 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
 
     mapping(string => address) public domains;
     mapping(string => string) public twitter;
+    mapping (uint => string) public names;
+
+    error AlreadyRegistered();
+    error InvalidName(string name);
 
     constructor( uint256 _price) payable ERC721("Panda Name Service", "PNS") Pausable() Ownable() {
         tld = "panda";
@@ -36,8 +40,8 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
     }
 
     function register(string calldata name) whenNotPaused() public payable {
-        require(domains[name] == address(0), "Name already registered"); // Avoid to register a name already taken
-        require(StringUtils.strlen(name) > 0, "Impossible to register this name");// Avoid to register a empty name
+        if (domains[name] != address(0)) revert AlreadyRegistered(); // Check if name is not already registered
+        if (!valid(name)) revert InvalidName(name); // Check if name is valid
         require(msg.value >= price, "Not enough money");// Avoid to pay less than require
 
         // Combine the name passed into the function  with the TLD
@@ -64,7 +68,7 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
         _safeMint(msg.sender, newRecordId);
         _setTokenURI(newRecordId, finalTokenUri);
         domains[name] = msg.sender;
-
+        names[newRecordId] = name;
         _tokenIds.increment();
     }
 
@@ -86,6 +90,14 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
         return twitter[name];
     }
 
+    function getAllNames() public view returns (string[] memory) {
+        string[] memory allNames = new string[](_tokenIds.current());
+        for (uint i = 0; i < _tokenIds.current(); i++) {
+            allNames[i] = names[i];
+        }
+        return allNames;
+    }
+
     function pause() onlyOwner whenNotPaused public {
         _pause();
     }
@@ -96,8 +108,11 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
 
     function withdraw(address payable _receiver) public onlyOwner {
         uint amount = address(this).balance;
-
         (bool success, ) = _receiver.call{value: amount}("");
         require(success, "Failed to withdraw fund");
+    }
+
+    function valid(string calldata name) public pure returns(bool) {
+        return StringUtils.strlen(name) >= 1 && StringUtils.strlen(name) <= 140;
     }
 }

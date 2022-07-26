@@ -8,10 +8,10 @@
 This project is a basic contract to learn Solidity.
 This contract let you pay some native currency to register a domain service as ER721
 The NFT generated will have the domain name and a picture of a panda
-Only the owner of the contract can pause it
-Only the owner of the contract can change the owner
 Only the owner of the contract can change the price
-The contract is deployed on  : []()
+Only the owner of the contract can withdraw the funds
+The contract use Ownable and Pausable OpenZeppelin contracts
+The contract is deployed on Rinkeby : [0xcc7bce2a2bCDA3316D78AcfF1742dE5a6c8D6B7F](https://rinkeby.etherscan.io/address/0xcc7bce2a2bcda3316d78acff1742de5a6c8d6b7f)
 
 
 ### **Environement variables**
