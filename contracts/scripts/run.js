@@ -11,9 +11,24 @@ const main = async () => {
     let balance = await hre.ethers.provider.getBalance(domainContract.address);
     console.log("Contract balance:", hre.ethers.utils.formatEther(balance));
 
+    // Getting token for Algoz
+    var raw = JSON.stringify({
+        "flag_as_bot": false,
+        "blocknumber": ethers.blocknumber
+    });
+
+    var data = await fetch("https://api.algoz.xyz/development/", {
+        method: 'POST',
+        body: raw, // string or object
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    var myJson = await data.json();
+
     // Transaction fail because contract is not paused : register an address
     try {
-        let registerTxn = await domainContract.register("test", {value: hre.ethers.utils.parseEther('0.16')});
+        let registerTxn = await domainContract.register("test", myJson.expiry_token, myJson.auth_token, myJson.signature_token, {value: hre.ethers.utils.parseEther('0.16')});
         await registerTxn.wait();
     } catch (e) {
         console.log("Transaction failed : ", e.message);
@@ -23,14 +38,42 @@ const main = async () => {
     let changeIsPausedTxn = await domainContract.unpause();
     await changeIsPausedTxn.wait();
 
+    // Getting token for Algoz
+    raw = JSON.stringify({
+        "flag_as_bot": false,
+        "blocknumber": ethers.blocknumber
+    });
 
-    let registerTxn = await domainContract.register("test", {value: hre.ethers.utils.parseEther('0.16')});
+    data = await fetch("https://api.algoz.xyz/development/", {
+        method: 'POST',
+        body: raw, // string or object
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    myJson = await data.json();
+
+    let registerTxn = await domainContract.register("test",  myJson.expiry_token, myJson.auth_token, myJson.signature_token, {value: hre.ethers.utils.parseEther('0.16')});
     await registerTxn.wait();
     console.log("Transaction completed domain minted");
 
+    // Getting token for Algoz
+    raw = JSON.stringify({
+        "flag_as_bot": false,
+        "blocknumber": ethers.blocknumber
+    });
+
+    data = await fetch("https://api.algoz.xyz/development/", {
+        method: 'POST',
+        body: raw, // string or object
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    myJson = await data.json();
     // Try to register a domain with a name already registered
     try {
-        let registerTxn = await domainContract.register("test", {value: hre.ethers.utils.parseEther('0.16')});
+        let registerTxn = await domainContract.register("test",  myJson.expiry_token, myJson.auth_token, myJson.signature_token, {value: hre.ethers.utils.parseEther('0.16')});
         await registerTxn.wait();
     } catch (e) {
         console.log("Transaction failed : ", e.message);

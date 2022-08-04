@@ -8,8 +8,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Algoz.sol";
 
-contract Domains is ERC721URIStorage, Pausable, Ownable {
+contract Domains is ERC721URIStorage, Pausable, Ownable, Algoz {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
@@ -28,7 +29,7 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
     error AlreadyRegistered();
     error InvalidName(string name);
 
-    constructor( uint256 _price) payable ERC721("Panda Name Service", "PNS") Pausable() Ownable() {
+    constructor( uint256 _price) payable ERC721("Panda Name Service", "PNS") Pausable() Ownable() Algoz(0x25AF8C6E36EE963D1De65bc82281A8e2D69b8c82, true, 50) {
         tld = "panda";
         price = _price;
         _pause();
@@ -39,11 +40,11 @@ contract Domains is ERC721URIStorage, Pausable, Ownable {
         price = newPrice;
     }
 
-    function register(string calldata name) whenNotPaused() public payable {
+    function register(string calldata name, bytes32 expiry_token, bytes32 auth_token, bytes calldata signature_token) whenNotPaused() public payable {
         if (domains[name] != address(0)) revert AlreadyRegistered(); // Check if name is not already registered
         if (!valid(name)) revert InvalidName(name); // Check if name is valid
         require(msg.value >= price, "Not enough money");// Avoid to pay less than require
-
+        validate_token(expiry_token, auth_token, signature_token); // Algoz captcha check
         // Combine the name passed into the function  with the TLD
         string memory _name = string(abi.encodePacked(name, ".", tld));
         // Create the SVG (image) for the NFT with the name

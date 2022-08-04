@@ -1,5 +1,6 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useRef} from "react";
 import {ethers} from "ethers";
+import ReCAPTCHA from "react-google-recaptcha";
 import './styles/App.css';
 
 import polygonLogo from './assets/polygonlogo.png';
@@ -12,7 +13,7 @@ import {networks} from './utils/networks';
 const TWITTER_HANDLE = 'NelsonRodMar';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 const tld = '.panda';
-const CONTRACT_ADDRESS = '0xcc7bce2a2bCDA3316D78AcfF1742dE5a6c8D6B7F';
+const CONTRACT_ADDRESS = '0x4b6702765FACc6A5411BC9cF2307462Bf217281E';
 
 const App = () => {
     const [currentAccount, setCurrentAccount] = useState("");
@@ -20,9 +21,13 @@ const App = () => {
     const [domain, setDomain] = useState('');
     const [twitter, setTwitter] = useState('');
     const [editing, setEditing] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [mints, setMints] = useState([]);
-
+    const [captchaToken, setCaptchaToken] = useState({
+        expiry_token: -1,
+        auth_token: -1,
+        signature_token: -1
+    });
     /**
      * Implement your connectWallet method here
      */
@@ -78,6 +83,44 @@ const App = () => {
         }
     }
 
+
+    function onCaptchaValidate(value) {
+        if (value) {
+            console.log("Value :", value);
+            var myHeaders = new Headers();
+            myHeaders.append("Content-Type", "application/json");
+            var raw = JSON.stringify({
+                "application_id": process.env.REACT_APP_APPLICATION_ID,
+                "validation_proof": value
+            });
+
+            var requestOptions = {
+                method: 'POST',
+                headers: myHeaders,
+                body: raw,
+                redirect: 'follow'
+            };
+
+            fetch("https://api.algoz.xyz/validate/", requestOptions)
+                .then(async response => {
+                    const data = await response.json();
+                    console.log("Response :", data);
+                    setCaptchaToken({
+                        expiry_token: data.expiry_token,
+                        auth_token: data.auth_token,
+                        signature_token: data.signature_token
+                    });
+                })
+                .catch(error => {
+                    console.error('There was an error!', error);
+                });
+
+            setLoading(false);
+        } else {
+            setLoading(true);
+        }
+    }
+
     const mintDomain = async () => {
         // Don't run if the domain is empty
         if (!domain && !twitter) {
@@ -105,17 +148,24 @@ const App = () => {
 
                 console.log("Price ", price)
                 console.log("Going to pop wallet now to pay gas...")
-                let tx = await contract.register(domain, {value: price});
+                let tx = await contract.register(
+                    domain,
+                    captchaToken.expiry_token,
+                    captchaToken.auth_token,
+                    captchaToken.signature_token,
+                    {value: price}
+                );
                 // Wait for the transaction to be mined
                 const receipt = await tx.wait();
+                console.log("Domain minted ! https://goerli.etherscan.io//tx/" + tx.hash);
 
-                // Check if the transaction was successfully completed
-                if (receipt.status === 1) {
+                // Check if the transaction was successfully completed and if twitter value is not null
+                if (receipt.status === 1 && !twitter) {
                     // Set the record for the domain
                     tx = await contract.setTwitter(domain, twitter);
                     await tx.wait();
 
-                    console.log("Record set! https://mumbai.polygonscan.com/tx/" + tx.hash);
+                    console.log("Record set! https://goerli.etherscan.io//tx/" + tx.hash);
 
                     // Call fetchMints after 2 seconds
                     setTimeout(() => {
@@ -205,7 +255,7 @@ const App = () => {
                                 <div className="mint-item" key={index}>
                                     <div className='mint-row'>
                                         <a className="link"
-                                           href={`https://testnets.opensea.io/assets/rinkeby/${CONTRACT_ADDRESS}/${mint.id}`}
+                                           href={`https://testnets.opensea.io/assets/goerli/${CONTRACT_ADDRESS}/${mint.id}`}
                                            target="_blank" rel="noopener noreferrer">
                                             <p>{' '}{mint.name}{tld}{' '}</p>
                                         </a>
@@ -245,7 +295,6 @@ const App = () => {
         </div>
     );
 
-
     // Form to enter domain name and data
     const renderInputForm = () => {
         return (
@@ -259,6 +308,7 @@ const App = () => {
                         type="text"
                         value={domain}
                         placeholder='domain'
+                        required={true}
                         onChange={e => setDomain(e.target.value)}
                     />
                     <p className='tld'> {tld} </p>
@@ -284,10 +334,15 @@ const App = () => {
                         </button>
                     </div>
                 ) : (
-                    // If editing is not true, the mint button will be returned instead
-                    <button className='cta-button mint-button' disabled={loading} onClick={mintDomain}>
-                        Mint
-                    </button>
+                    <div>
+                        <ReCAPTCHA
+                            sitekey={process.env.REACT_APP_SITE_KEY}
+                            onChange={onCaptchaValidate}
+                        />
+                        <button className='cta-button mint-button' disabled={loading} onClick={mintDomain}>
+                            Mint
+                        </button>
+                    </div>
                 )}
 
             </div>
